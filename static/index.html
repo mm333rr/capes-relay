@@ -1,0 +1,327 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Capes Relay</title>
+<style>
+  :root {
+    --bg: #0d0d0d; --surface: #1a1a1a; --surface2: #252525;
+    --border: #333; --text: #e8e8e8; --text2: #999;
+    --accent: #d4a26a; --accent2: #b8873f; --user-bg: #1e3a5f;
+    --claude-bg: #1a2a1a; --error: #c0392b; --radius: 12px;
+    --safe-bottom: env(safe-area-inset-bottom, 0px);
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: var(--bg); color: var(--text); font-family: -apple-system, sans-serif;
+    font-size: 15px; height: 100dvh; display: flex; flex-direction: column; overflow: hidden; }
+
+  /* ── header ── */
+  #header { background: var(--surface); border-bottom: 1px solid var(--border);
+    display: flex; align-items: center; gap: 10px; padding: 12px 16px;
+    padding-top: max(12px, env(safe-area-inset-top, 12px)); flex-shrink: 0; }
+  #header h1 { font-size: 17px; font-weight: 600; color: var(--accent); flex: 1; }
+  #sessions-btn { background: var(--surface2); border: 1px solid var(--border);
+    color: var(--text); padding: 6px 12px; border-radius: 8px; font-size: 13px; cursor: pointer; }
+  #new-btn { background: var(--accent); border: none; color: #000;
+    padding: 6px 12px; border-radius: 8px; font-size: 13px; font-weight: 600; cursor: pointer; }
+
+  /* ── session list drawer ── */
+  #sessions-panel { position: fixed; inset: 0; z-index: 100; display: none; }
+  #sessions-overlay { position: absolute; inset: 0; background: rgba(0,0,0,.6); }
+  #sessions-drawer { position: absolute; left: 0; top: 0; bottom: 0; width: min(320px, 90vw);
+    background: var(--surface); border-right: 1px solid var(--border);
+    display: flex; flex-direction: column; padding-top: env(safe-area-inset-top, 0); }
+  #sessions-drawer h2 { padding: 16px; font-size: 16px; border-bottom: 1px solid var(--border); }
+  #sessions-list { flex: 1; overflow-y: auto; }
+  .session-item { padding: 14px 16px; border-bottom: 1px solid var(--border);
+    cursor: pointer; transition: background .15s; }
+  .session-item:hover, .session-item:active { background: var(--surface2); }
+  .session-item .s-title { font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .session-item .s-meta { font-size: 12px; color: var(--text2); margin-top: 3px; }
+  .session-item.active { background: var(--surface2); border-left: 3px solid var(--accent); }
+</style>
+
+  /* ── chat area ── */
+  #chat { flex: 1; overflow-y: auto; padding: 12px 16px; display: flex; flex-direction: column; gap: 12px; }
+  .msg { max-width: 88%; display: flex; flex-direction: column; gap: 4px; }
+  .msg.user { align-self: flex-end; }
+  .msg.claude { align-self: flex-start; }
+  .bubble { padding: 10px 14px; border-radius: var(--radius); line-height: 1.55; white-space: pre-wrap; word-break: break-word; }
+  .msg.user .bubble { background: var(--user-bg); border-bottom-right-radius: 4px; }
+  .msg.claude .bubble { background: var(--claude-bg); border-bottom-left-radius: 4px; }
+  .bubble.streaming::after { content: "▊"; animation: blink .7s infinite; }
+  .bubble code { background: rgba(255,255,255,.1); padding: 1px 4px; border-radius: 4px; font-size: 13px; font-family: monospace; }
+  .bubble pre { background: rgba(0,0,0,.4); padding: 10px 12px; border-radius: 8px; overflow-x: auto; font-size: 13px; margin: 6px 0; }
+  .bubble pre code { background: none; padding: 0; }
+  .msg-label { font-size: 11px; color: var(--text2); padding: 0 4px; }
+  .msg.user .msg-label { text-align: right; }
+  .error-msg { color: var(--error); font-size: 13px; padding: 8px 12px;
+    background: rgba(192,57,43,.1); border-radius: 8px; border: 1px solid rgba(192,57,43,.3); }
+  #empty-state { margin: auto; text-align: center; color: var(--text2); padding: 40px 20px; }
+  #empty-state h2 { font-size: 22px; color: var(--accent); margin-bottom: 8px; }
+  #empty-state p { font-size: 14px; line-height: 1.6; }
+
+  /* ── input bar ── */
+  #input-bar { background: var(--surface); border-top: 1px solid var(--border);
+    display: flex; gap: 8px; padding: 10px 14px;
+    padding-bottom: max(10px, var(--safe-bottom)); flex-shrink: 0; align-items: flex-end; }
+  #msg-input { flex: 1; background: var(--surface2); border: 1px solid var(--border);
+    border-radius: 20px; padding: 9px 14px; color: var(--text); font-size: 15px;
+    resize: none; max-height: 120px; outline: none; line-height: 1.4; }
+  #msg-input:focus { border-color: var(--accent); }
+  #send-btn { background: var(--accent); border: none; width: 38px; height: 38px;
+    border-radius: 50%; cursor: pointer; display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0; transition: background .15s; }
+  #send-btn:disabled { background: var(--border); cursor: default; }
+  #send-btn svg { width: 18px; height: 18px; fill: #000; }
+  #session-bar { background: var(--surface2); border-bottom: 1px solid var(--border);
+    padding: 6px 16px; font-size: 12px; color: var(--text2); display: none; }
+  #session-bar span { color: var(--accent); font-family: monospace; }
+
+  @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0} }
+  @media (prefers-color-scheme: light) {
+    :root { --bg:#f5f5f0; --surface:#fff; --surface2:#f0efe9; --border:#ddd; --text:#1a1a1a;
+      --text2:#666; --user-bg:#1e3a5f; --claude-bg:#e8f4e8; }
+    .msg.user .bubble { color: #e8e8e8; }
+  }
+</style>
+</head>
+<body>
+<div id="header">
+  <h1>🏠 Capes</h1>
+  <button id="sessions-btn" onclick="openSessions()">Sessions</button>
+  <button id="new-btn" onclick="newChat()">+ New</button>
+</div>
+<div id="session-bar">Session: <span id="session-id-label">—</span></div>
+
+<div id="sessions-panel">
+  <div id="sessions-overlay" onclick="closeSessions()"></div>
+  <div id="sessions-drawer">
+    <h2>Recent Sessions</h2>
+    <div id="sessions-list"><p style="padding:16px;color:var(--text2);font-size:13px">Loading…</p></div>
+  </div>
+</div>
+
+<div id="chat">
+  <div id="empty-state">
+    <h2>Capes Relay</h2>
+    <p>Bridge to Claude Desktop on the Mac Pro.<br>Start a new chat or pick a session.</p>
+  </div>
+</div>
+
+<div id="input-bar">
+  <textarea id="msg-input" rows="1" placeholder="Message Claude…" oninput="autoResize(this)"
+    onkeydown="handleKey(event)"></textarea>
+  <button id="send-btn" onclick="sendMessage()" disabled>
+    <svg viewBox="0 0 24 24"><path d="M2 21L23 12 2 3v7l15 2-15 2z"/></svg>
+  </button>
+</div>
+
+<script>
+// ---------------------------------------------------------------------------
+// State
+// ---------------------------------------------------------------------------
+const BASE   = window.location.origin;
+const TOKEN  = localStorage.getItem('relay_token') || '';
+let currentSessionId = null;
+let isStreaming = false;
+
+const chatEl     = document.getElementById('chat');
+const inputEl    = document.getElementById('msg-input');
+const sendBtn    = document.getElementById('send-btn');
+const sessionBar = document.getElementById('session-bar');
+const sessionLbl = document.getElementById('session-id-label');
+const emptyState = document.getElementById('empty-state');
+
+// ---------------------------------------------------------------------------
+// Auth token setup
+// ---------------------------------------------------------------------------
+(function checkToken() {
+  let t = localStorage.getItem('relay_token');
+  if (!t) {
+    t = prompt('Enter relay bearer token (leave blank if none):') || '';
+    localStorage.setItem('relay_token', t);
+  }
+})();
+
+function headers() {
+  const h = { 'Content-Type': 'application/json' };
+  const t = localStorage.getItem('relay_token') || '';
+  if (t) h['Authorization'] = 'Bearer ' + t;
+  return h;
+}
+
+// ---------------------------------------------------------------------------
+// Session drawer
+// ---------------------------------------------------------------------------
+async function openSessions() {
+  document.getElementById('sessions-panel').style.display = 'block';
+  const listEl = document.getElementById('sessions-list');
+  listEl.innerHTML = '<p style="padding:16px;color:var(--text2);font-size:13px">Loading…</p>';
+  try {
+    const res  = await fetch(BASE + '/api/sessions', { headers: headers() });
+    const data = await res.json();
+    if (!data.sessions.length) {
+      listEl.innerHTML = '<p style="padding:16px;color:var(--text2);font-size:13px">No sessions found</p>';
+      return;
+    }
+    listEl.innerHTML = data.sessions.map(s => `
+      <div class="session-item ${s.id === currentSessionId ? 'active' : ''}"
+           onclick="loadSession('${s.id}', ${JSON.stringify(s.title).replace(/'/g,"&#39;")})">
+        <div class="s-title">${escHtml(s.title)}</div>
+        <div class="s-meta">${s.message_count} msgs · ${relTime(s.updated_at)}</div>
+      </div>`).join('');
+  } catch(e) {
+    listEl.innerHTML = `<p style="padding:16px;color:var(--error);font-size:13px">Error: ${e.message}</p>`;
+  }
+}
+</script>
+
+<script>
+function closeSessions() { document.getElementById('sessions-panel').style.display = 'none'; }
+
+function loadSession(id, title) {
+  closeSessions();
+  currentSessionId = id;
+  sessionLbl.textContent = id.slice(0, 18) + '…';
+  sessionBar.style.display = 'block';
+  emptyState && (emptyState.style.display = 'none');
+  appendMsg('system', `Resumed session: "${title}"`);
+  inputEl.focus();
+}
+
+function newChat() {
+  currentSessionId = null;
+  sessionBar.style.display = 'none';
+  chatEl.innerHTML = '';
+  const e = document.createElement('div');
+  e.id = 'empty-state';
+  e.innerHTML = '<h2>New Chat</h2><p>Send a message to start a new Claude session.</p>';
+  e.style.cssText = 'margin:auto;text-align:center;color:var(--text2);padding:40px 20px';
+  chatEl.appendChild(e);
+  inputEl.focus();
+}
+
+// ---------------------------------------------------------------------------
+// Chat
+// ---------------------------------------------------------------------------
+function appendMsg(role, text) {
+  const es = document.getElementById('empty-state');
+  if (es) es.remove();
+
+  const div = document.createElement('div');
+  div.className = `msg ${role}`;
+  if (role === 'system') {
+    div.innerHTML = `<div class="error-msg" style="color:var(--text2)">${escHtml(text)}</div>`;
+  } else {
+    const label = role === 'user' ? 'You' : 'Claude';
+    div.innerHTML = `<div class="msg-label">${label}</div><div class="bubble" id="bubble-${Date.now()}">${renderText(text)}</div>`;
+  }
+  chatEl.appendChild(div);
+  chatEl.scrollTop = chatEl.scrollHeight;
+  return div.querySelector('.bubble');
+}
+
+async function sendMessage() {
+  const text = inputEl.value.trim();
+  if (!text || isStreaming) return;
+
+  inputEl.value = '';
+  autoResize(inputEl);
+  sendBtn.disabled = true;
+  isStreaming = true;
+
+  appendMsg('user', text);
+  const bubble = appendMsg('claude', '');
+  bubble.classList.add('streaming');
+  bubble.textContent = '';
+
+  try {
+    const res = await fetch(BASE + '/api/chat', {
+      method:  'POST',
+      headers: headers(),
+      body:    JSON.stringify({ message: text, session_id: currentSessionId }),
+    });
+
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+
+    const reader = res.body.getReader();
+    const dec    = new TextDecoder();
+    let   buf    = '';
+    let   full   = '';
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buf += dec.decode(value, { stream: true });
+      const lines = buf.split('\n');
+      buf = lines.pop();
+      for (const line of lines) {
+        if (!line.startsWith('data: ')) continue;
+        const payload = line.slice(6).trim();
+        if (payload === '[DONE]') break;
+        try {
+          const obj = JSON.parse(payload);
+          if (obj.type === 'text') {
+            full += obj.text;
+            bubble.innerHTML = renderText(full);
+            if (!currentSessionId && obj.session_id) {
+              currentSessionId = obj.session_id;
+              sessionLbl.textContent = obj.session_id.slice(0,18) + '…';
+              sessionBar.style.display = 'block';
+            }
+          } else if (obj.type === 'error') {
+            bubble.innerHTML = `<span style="color:var(--error)">${escHtml(obj.text)}</span>`;
+          }
+        } catch { /* skip malformed */ }
+        chatEl.scrollTop = chatEl.scrollHeight;
+      }
+    }
+  } catch (err) {
+    bubble.innerHTML = `<span style="color:var(--error)">Error: ${escHtml(err.message)}</span>`;
+  } finally {
+    bubble.classList.remove('streaming');
+    isStreaming = false;
+    sendBtn.disabled = false;
+    inputEl.focus();
+    chatEl.scrollTop = chatEl.scrollHeight;
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Helpers
+// ---------------------------------------------------------------------------
+function handleKey(e) {
+  sendBtn.disabled = !inputEl.value.trim();
+  if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); }
+}
+
+function autoResize(el) {
+  el.style.height = 'auto';
+  el.style.height = Math.min(el.scrollHeight, 120) + 'px';
+  sendBtn.disabled = !el.value.trim();
+}
+
+function escHtml(s) {
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+function renderText(s) {
+  // Minimal markdown: code blocks, inline code, bold, italics
+  return escHtml(s)
+    .replace(/```([\s\S]*?)```/g, '<pre><code>$1</code></pre>')
+    .replace(/`([^`]+)`/g, '<code>$1</code>')
+    .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+    .replace(/\*(.+?)\*/g, '<em>$1</em>');
+}
+
+function relTime(ts) {
+  const d = Math.round((Date.now()/1000 - ts));
+  if (d < 60)   return 'just now';
+  if (d < 3600) return Math.round(d/60) + 'm ago';
+  if (d < 86400) return Math.round(d/3600) + 'h ago';
+  return Math.round(d/86400) + 'd ago';
+}
+</script>
+</body></html>

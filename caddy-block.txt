@@ -1,0 +1,12 @@
+# ---------------------------------------------------------------------------
+# capes-relay — Claude CLI web bridge (Mac Pro port 7823)
+# Add this block to /srv/docker/caddy/Caddyfile on mbuntu
+# ---------------------------------------------------------------------------
+relay.am180.us {
+  import tls_wildcard
+  import lan_only
+  import log_access
+
+  # Forward to Mac Pro on LAN (not a Docker container — direct host IP)
+  reverse_proxy 192.168.1.30:7823
+}

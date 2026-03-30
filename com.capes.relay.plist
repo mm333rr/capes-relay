@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN"
+  "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>Label</key>
+  <string>com.capes.relay</string>
+
+  <key>ProgramArguments</key>
+  <array>
+    <string>/Volumes/500g-R1/Claude Scripts and Venvs/capes-relay/venv/bin/python3</string>
+    <string>/Volumes/500g-R1/Claude Scripts and Venvs/capes-relay/relay.py</string>
+    <string>--port</string>
+    <string>7823</string>
+  </array>
+
+  <key>EnvironmentVariables</key>
+  <dict>
+    <!-- Set RELAY_TOKEN here or leave blank for LAN-only (Caddy handles auth) -->
+    <key>RELAY_TOKEN</key>
+    <string></string>
+    <key>PATH</key>
+    <string>/Users/mProAdmin/.npm-global/bin:/usr/local/bin:/usr/bin:/bin</string>
+    <key>HOME</key>
+    <string>/Users/mProAdmin</string>
+  </dict>
+
+  <key>RunAtLoad</key>
+  <true/>
+  <key>KeepAlive</key>
+  <true/>
+
+  <key>StandardOutPath</key>
+  <string>/Users/mProAdmin/Library/Logs/capes-relay/stdout.log</string>
+  <key>StandardErrorPath</key>
+  <string>/Users/mProAdmin/Library/Logs/capes-relay/stderr.log</string>
+
+  <key>WorkingDirectory</key>
+  <string>/Volumes/500g-R1/Claude Scripts and Venvs/capes-relay</string>
+</dict>
+</plist>

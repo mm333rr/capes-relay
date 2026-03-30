@@ -1,10 +1,13 @@
 # ---------------------------------------------------------------------------
 # capes-relay — Claude CLI web bridge (Mac Pro port 7823)
 # Add this block to /srv/docker/caddy/Caddyfile on mbuntu
+#
+# NOTE: No lan_only — iPhone traffic arrives via iCloud Private Relay
+# (172.89.x.x) which lan_only blocks. Auth is handled by bearer token
+# in the relay app itself (RELAY_TOKEN in launchd plist).
 # ---------------------------------------------------------------------------
 relay.am180.us {
   import tls_wildcard
-  import lan_only
   import log_access
 
   # Forward to Mac Pro on LAN (not a Docker container — direct host IP)

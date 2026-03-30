@@ -18,7 +18,7 @@
   <dict>
     <!-- Set RELAY_TOKEN here or leave blank for LAN-only (Caddy handles auth) -->
     <key>RELAY_TOKEN</key>
-    <string></string>
+    <string>gGhkxVOpAeSzrfVQ2hddM2KH</string>
     <key>PATH</key>
     <string>/Users/mProAdmin/.npm-global/bin:/usr/local/bin:/usr/bin:/bin</string>
     <key>HOME</key>

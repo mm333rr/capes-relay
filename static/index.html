@@ -4,6 +4,8 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Capes Relay</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🏠</text></svg>">
+<link rel="apple-touch-icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🏠</text></svg>">
 <style>
 :root {
   --bg:#0d0d0d; --surface:#1a1a1a; --surface2:#252525; --border:#333;
@@ -217,6 +219,12 @@ function appendMsg(role, text) {
 async function sendMessage() {
   const text = inputEl.value.trim();
   if (!text || isStreaming) return;
+  return sendMessageRaw(text, currentSessionId);
+}
+
+async function sendMessageRaw(text, sessionOverride) {
+  currentSessionId = sessionOverride;
+  if (!text || isStreaming) return;
   inputEl.value = '';
   autoResize(inputEl);
   sendBtn.disabled = true;
@@ -259,6 +267,14 @@ async function sendMessage() {
               sessionLbl.textContent = obj.session_id.slice(0,18) + '…';
               sessionBar.style.display = 'block';
             }
+          } else if (obj.type === 'session_not_found') {
+            // Stale session ID — clear it and retry as new
+            currentSessionId = null;
+            sessionBar.style.display = 'none';
+            bubble.innerHTML = '<em style="color:var(--text2)">Session expired — retrying as new chat…</em>';
+            // Short delay then retry
+            setTimeout(() => sendMessageRaw(text, null), 500);
+            return;
           } else if (obj.type === 'error') {
             bubble.innerHTML = `<span style="color:var(--error)">${escHtml(obj.text)}</span>`;
           }

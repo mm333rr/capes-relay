@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-capes-relay — v1.1.0
+capes-relay — v1.2.0
 Thin HTTP bridge between a mobile browser and the claude CLI.
 Lets Paco open, resume, and chat with Claude Code sessions from iPhone.
 
@@ -81,7 +81,7 @@ _rate_log: dict[str, collections.deque] = {}
 # FastAPI app
 # ---------------------------------------------------------------------------
 
-app = FastAPI(title="capes-relay", version="1.1.0")
+app = FastAPI(title="capes-relay", version="1.2.0")
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -252,8 +252,13 @@ async def _run_claude(message: str, session_id: Optional[str] = None) -> AsyncGe
     await proc.wait()
     stderr = await proc.stderr.read()
     if proc.returncode != 0:
-        log.error("claude exited %d: %s", proc.returncode, stderr.decode()[:500])
-        yield f"data: {json.dumps({'type':'error','text':stderr.decode()[:300]})}\n\n"
+        err_text = stderr.decode()
+        log.error("claude exited %d: %s", proc.returncode, err_text[:500])
+        if session_id and "No conversation found" in err_text:
+            log.warning("Stale session %s — signalling client to clear and retry as new", session_id)
+            yield f"data: {json.dumps({'type':'session_not_found','session_id':session_id})}\n\n"
+        else:
+            yield f"data: {json.dumps({'type':'error','text':err_text[:300]})}\n\n"
     yield "data: [DONE]\n\n"
 
 # ---------------------------------------------------------------------------
@@ -333,7 +338,7 @@ def main():
 
     RELAY_TOKEN = args.token
 
-    log.info("capes-relay v1.1.0 starting on %s:%d", args.host, args.port)
+    log.info("capes-relay v1.2.0 starting on %s:%d", args.host, args.port)
     log.info("Claude binary:  %s (exists=%s)", CLAUDE_BIN, Path(CLAUDE_BIN).exists())
     log.info("Sessions dir:   %s", SESSIONS_DIR)
     log.info("Auth:           token=%s, trusted nets=%d",
